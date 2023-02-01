@@ -68,12 +68,10 @@ def _geometry_factory(func, N, dx, **kwargs):
     # intersection = filter function parameters to just x,y,r,t so we know what to pass
     need_args = xyrt.intersection(params)
 
-    # reuse name now... |= is a  py 3.9+ dictionary union
-    # (could use kwarg.update(kwargs) for <=3.9 compat)
     x, y = coordinates.make_xy_grid(N, dx=dx)
     xyrt = dict(x=x, y=y)
     if 'r' in need_args or 't' in need_args:
-        r, t = coordinates.cart_to_polar(x, y)  # NOQA: linter blind to the fact that we may access r, t through locals
+        r, t = coordinates.cart_to_polar(x, y)
         xyrt.update(dict(r=r, t=t))
     kwarg = {k: xyrt[k] for k in need_args}
     kwarg.update(kwargs)
@@ -125,7 +123,7 @@ class FPM:
         r = np.hypot(x, y)
 
         def fpmfunc(wvl):
-            return 1 - geometry.circle(radius*lamD, r)
+            return 1 - geometry.truecircle(radius*lamD, r)
 
         # TODO: need to del x, y here?  They should be collected because
         # they went out of scope, but maybe keeping r around through a closure
@@ -246,7 +244,7 @@ class SingleDMCoronagraph:
                                       method=self.method)
         return img.intensity
 
-    def fwd(self, wvl, norm=True, debug=False):
+    def fwd(self, wvl, norm=False, debug=False):
         """Forward model of the coronagraph.
 
         Parameters
@@ -267,8 +265,9 @@ class SingleDMCoronagraph:
         """
         fpm = self.fpm(wvl)
         wf = WF.from_amp_and_phase(self.pupil.data, phase=self.dm_wfe, wavelength=wvl, dx=self.pupil.dx)
+        self._g = wf.data
         after_lyot, at_fpm, after_fpm, at_lyot = \
-            wf.babinet(efl=self.efl, lyot=self.ls.data, fpm=1 - fpm, fpm_dx=self.fpm.dx,
+            wf.babinet(efl=self.efl, lyot=self.ls.data, fpm=fpm, fpm_dx=self.fpm.dx,
                        method=self.method, return_more=True)
 
         img = after_lyot.focus_fixed_sampling(self.efl,
@@ -287,6 +286,30 @@ class SingleDMCoronagraph:
             }
         else:
             return img.data
+
+    def _rev(self, protograd, wvl):
+        fpm = self.fpm(wvl)
+        step1 = propagation.focus_fixed_sampling_backprop(
+            wavefunction=protograd,
+            input_dx=self.pupil.dx,
+            prop_dist=self.efl,
+            wavelength=wvl,
+            output_dx=self.imgspec.dx,
+            output_samples=self.pupil.N,
+            method=self.method)
+
+        # return step1
+        step1 = WF(step1, wvl, self.pupil.dx, space='pupil')
+        step2 = step1.babinet_backprop(self.efl, self.ls.data, fpm, self.fpm.dx, method=self.method)
+        # step2 contains the complex gradient at the DM1 plane,
+        # compute the gradient w.r.t. phase at DM1
+        # 1e3 = um to nm
+        # return step2.data
+        # return step2
+        df_dphi = (2 * np.pi / wvl / 1e3) * np.imag(step2.data * np.conj(self._g))
+        # return df_dphi
+        df_dacts = self.dm.render_backprop(df_dphi, wfe=True)
+        return df_dacts
 
     def fwd_bb(self, wvls, weights, debug=False):
         """Broad-band forward model of the coronagraph.
