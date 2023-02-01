@@ -1,5 +1,5 @@
 [run]
-source = prysm
+source = dygdug
 
 [report]
 exclude_lines =
