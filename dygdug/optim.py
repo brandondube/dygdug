@@ -101,6 +101,9 @@ class F77LBFGSB:
             task = self.task.tobytes().strip(b'\x00').strip()
             if task.startswith(b'FG'):
                 f, g = self.fg(self.x)
+                if g.ndim != 1:
+                    g = g.ravel()
+
                 self.f[:] = f
                 self.g[:] = g
                 self._call_fortran()
