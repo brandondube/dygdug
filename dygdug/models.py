@@ -277,6 +277,9 @@ class SingleDMCoronagraph:
 
         if norm:
             img.data *= self.norm
+
+        self.I = img
+
         if debug:
             return {
                 'input': wf,
