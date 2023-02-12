@@ -8,8 +8,16 @@ CMPLX_E   = 2
 class CoronagraphOptimizer:
     def __init__(self, dark_hole, coro, wvl, opt=CMPLX_E):
         self.dh = dark_hole
-        self.dh_mask = np.isfinite(self.dh)
-        self.dh_pix_target = self.dh[self.dh_mask]
+        if dark_hole.dtype == bool:
+            self.dh_mask = self.dh
+            self.dh_pix_target = 0
+        else:
+            raise ValueError('weighted dark hole control not yet implemented')
+            # it is just a np.isfinite to find non-nans, a flag
+            # to indicate weighting in the backprop, and
+            # Ibar being 2*w*(dh-dh_target)
+            # though.
+            # oh well, Lazy!
         self.coro = coro
         self.wvl = wvl
         self.opt = opt
