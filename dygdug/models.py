@@ -522,10 +522,9 @@ class TwoDMCoronagraph:
         wf_after_dm2 = wf_at_dm2 * dm2
 
         wf_at_intermediate_pupil = wf_after_dm2.free_space(tf=tf2_to_1)
-
-        at_fpm = wf_at_intermediate_pupil.focus(efl=self.efl, Q=1)
-        after_fpm = at_fpm * fpm
-        at_lyot = after_fpm.unfocus(efl=self.efl, Q=1)
+        after_lyot, at_fpm, after_fpm, at_lyot = wf_at_intermediate_pupil.\
+            babinet(efl=self.efl, lyot=self.ls.data, fpm=fpm, fpm_dx=self.fpm.dx,
+                       method=self.method, return_more=True)
         after_lyot = at_lyot * self.ls.data
         img = after_lyot.focus_fixed_sampling(self.efl,
                                               dx=self.imgspec.dx,
@@ -545,6 +544,32 @@ class TwoDMCoronagraph:
             }
         else:
             return img.data
+
+    def _rev(self, protograd, wvl):
+        fpm = self.fpm(wvl)
+        tf1_to_2 = self.dm1_to_dm2_tfs(wvl)
+        tf2_to_1 = self.dm2_to_dm1_tfs(wvl)
+
+        step1 = propagation.focus_fixed_sampling_backprop(
+            wavefunction=protograd,
+            input_dx=self.pupil.dx,
+            prop_dist=self.efl,
+            wavelength=wvl,
+            output_dx=self.imgspec.dx,
+            output_samples=self.pupil.N,
+            method=self.method)
+
+        step1 = WF(step1, wvl, self.pupil.dx, space='pupil')
+        step2 = step1.babinet_backprop(self.efl, self.ls.data, fpm, self.fpm.dx, method=self.method)
+        # step2 contains the complex gradient at the intermediate pupil plane,
+        # compute the gradient w.r.t. phase at DM1
+        # 1e3 = um to nm
+        # return step2.data
+        # return step2
+        df_dphi = (2 * np.pi / wvl / 1e3) * np.imag(step2.data * np.conj(self._g))
+        # return df_dphi
+        df_dacts = self.dm.render_backprop(df_dphi, wfe=True)
+        return df_dacts
 
     def fwd_bb(self, wvls, weights, debug=False):
         """Broad-band forward model of the coronagraph.
