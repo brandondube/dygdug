@@ -120,6 +120,16 @@ class F77LBFGSB:
 
         return self.x, self.f, self.g
 
+    def runN(self, N):
+        """Run the optimizer for N iterations as an iterator, yielding (xk, fk, gk)."""
+        for _ in range(N):
+            yield self.step()
+
+    def run_to(self, N):
+        """Run the optimizer until its iteration count equals N."""
+        while self.iter < N:
+            yield self.step()
+
 
 def _fortran_died(task):
     return task.startswith(b'STOP')
