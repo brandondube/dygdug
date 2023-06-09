@@ -1,3 +1,5 @@
+import warnings
+
 from scipy.optimize import _lbfgsb
 
 import numpy as np
@@ -122,13 +124,21 @@ class F77LBFGSB:
 
     def runN(self, N):
         """Run the optimizer for N iterations as an iterator, yielding (xk, fk, gk)."""
-        for _ in range(N):
-            yield self.step()
+        for i in range(N):
+            try:
+                yield self.step()
+            except StopIteration:
+                warnings.warn(f'L-BFGS-B can make no further progress; performed {i}/N iterations')
+                break
 
     def run_to(self, N):
         """Run the optimizer until its iteration count equals N."""
         while self.iter < N:
-            yield self.step()
+            try:
+                yield self.step()
+            except StopIteration:
+                warnings.warn(f'L-BFGS-B can make no further progress; stopped on iteration {self.iter}/N iterations')
+                break
 
 
 def _fortran_died(task):
