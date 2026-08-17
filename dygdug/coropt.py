@@ -16,6 +16,7 @@ from dygdug.cost_functions import (
     MeanSquaredErrorQuadratic,
 )
 from dygdug.masks import FPM, Pupil
+from dygdug.truecircle_grad import truecircle_fwd
 
 
 class VariablePupil(Pupil):
@@ -209,7 +210,7 @@ class VariableLyotStop(Pupil):
         dx = Dpup / Npup
         x, y = coordinates.make_xy_grid(Npup, dx=dx)
         r = np.hypot(x, y)
-        data = geometry.truecircle(outer_radius, r)
+        data = truecircle_fwd(outer_radius, r)[0]
         return cls(data=data, dx=dx, r=r, annular=False)
 
     @classmethod
@@ -230,8 +231,8 @@ class VariableLyotStop(Pupil):
         dx = Dpup / Npup
         x, y = coordinates.make_xy_grid(Npup, dx=dx)
         r = np.hypot(x, y)
-        data = geometry.truecircle(outer_radius, r) * (
-            1 - geometry.truecircle(inner_radius, r)
+        data = truecircle_fwd(outer_radius, r)[0] * (
+            1 - truecircle_fwd(inner_radius, r)[0]
         )
         return cls(data=data, dx=dx, r=r, annular=True)
 
@@ -251,11 +252,11 @@ class VariableLyotStop(Pupil):
         """
         if self._annular:
             inner_r, outer_r = x
-            self.data = geometry.truecircle(outer_r, self._r) * (
-                1 - geometry.truecircle(inner_r, self._r)
+            self.data = truecircle_fwd(outer_r, self._r)[0] * (
+                1 - truecircle_fwd(inner_r, self._r)[0]
             )
         else:
-            self.data = geometry.truecircle(x[0], self._r)
+            self.data = truecircle_fwd(x[0], self._r)[0]
 
 
 class ThroughputOptimizer:
