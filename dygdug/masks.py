@@ -11,6 +11,7 @@ from prysm._richdata import RichData
 from prysm.mathops import np
 from prysm.segmented import CompositeHexagonalAperture
 from prysm.x.dm import DM
+from dygdug.truecircle_grad import truecircle_fwd
 
 WF = propagation.Wavefront
 
@@ -97,7 +98,7 @@ class Pupil:
     @classmethod
     def circle(cls, Dpup, Npup):
         dx = Dpup / Npup
-        data = _geometry_factory(geometry.truecircle, N=Npup, dx=dx, radius=Dpup / 2)
+        data = _geometry_factory(truecircle_fwd, N=Npup, dx=dx, radius=Dpup / 2)[0]
         return cls(data=data, dx=dx)
 
     @classmethod
@@ -126,8 +127,8 @@ class Pupil:
         x, y = coordinates.make_xy_grid(Npup, dx=dx)
         r = np.hypot(x, y)
 
-        inner_circle = geometry.truecircle(inner_radius, r)
-        outer_circle = geometry.truecircle(outer_radius, r)
+        inner_circle = truecircle_fwd(inner_radius, r)[0]
+        outer_circle = truecircle_fwd(outer_radius, r)[0]
         data = outer_circle * (1 - inner_circle)
 
         return cls(data=data, dx=dx)

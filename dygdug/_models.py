@@ -17,6 +17,7 @@ from .vortexprop import (
     compute_partitions_fixed_samplings,
     vortex_prop,
 )
+from dygdug.truecircle_grad import truecircle_fwd
 
 WF = propagation.Wavefront
 
@@ -101,7 +102,7 @@ class Pupil:
     @classmethod
     def circle(cls, N, Dpup, Npup):
         dx = Dpup/Npup
-        data = _geometry_factory(geometry.truecircle, N=N, dx=dx, radius=Dpup/2)
+        data = _geometry_factory(truecircle_fwd, N=N, dx=dx, radius=Dpup/2)[0]
         return cls(data=data, dx=dx)
 
 
@@ -123,7 +124,7 @@ class FPM:
         r = np.hypot(x, y)
 
         def fpmfunc(wvl):
-            return 1 - geometry.truecircle(radius*lamD, r)
+            return 1 - truecircle_fwd(radius*lamD, r)[0]
 
         # TODO: need to del x, y here?  They should be collected because
         # they went out of scope, but maybe keeping r around through a closure
